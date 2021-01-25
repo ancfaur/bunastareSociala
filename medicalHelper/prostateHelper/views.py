@@ -1,20 +1,23 @@
-
-from django.http import HttpResponseRedirect,  Http404
+from django.http import HttpResponseRedirect, Http404
 from django.shortcuts import render
 from django.urls import reverse
+
 from prostateHelper.forms import LoadImageForm
 from prostateHelper.models import Image
 
 from PIL import Image as PilImage
-import PIL.ImageOps
 import base64
-from io import StringIO
+import numpy as np
+from io import BytesIO
+
+from .ai_helper import AIManager
+
+ai_manager = AIManager()
 
 
 def index(request):
     if request.method == 'POST':
         form = LoadImageForm(request.POST, request.FILES)
-
         if form.is_valid():
             image_id = form.save().id
             return HttpResponseRedirect(reverse('prostateHelper:analysed_image', args=(image_id,)))
@@ -24,20 +27,27 @@ def index(request):
 
 
 def process(original):
-    # transform and save
-    pil_image = PilImage.open(original)
-    inverted_image = PIL.ImageOps.invert(pil_image)
-    result_path = "D:\Anca\manaBionica\master\sem3\ITSG- Bunastare sociala\DjangoMedical\DjangoMedical\medicalHelper\media\processed_images\output.jpeg"
-    inverted_image.save(result_path)
-    return result_path
+    return ai_manager.predict_image(original)
 
 
 def analysed_image(request, image_id):
     if request.method == 'GET':
         try:
             im = Image.objects.get(pk=image_id)
-            result = process(im.original)
+            output_array = process(im.original)
+            result_uri = convert_array_to_uri(output_array)
         except Image.DoesNotExist:
             raise Http404("Image does not exist")
         return render(request, 'prostateHelper/analysed_image.html',
-                      {'image': im, 'result': result})
+                      {'image': im, 'result_uri': result_uri})
+
+
+def convert_array_to_uri(array):
+    array = np.random.random((128,128))
+    img = PilImage.fromarray(array)
+    if img.mode == "F":
+        img = img.convert('RGB')
+    data = BytesIO()
+    img.save(data, "JPEG")  # pick your format
+    data64 = base64.b64encode(data.getvalue())
+    return u'data:img/jpeg;base64,' + data64.decode('utf-8')
