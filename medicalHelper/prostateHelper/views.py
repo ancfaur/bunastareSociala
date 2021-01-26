@@ -5,7 +5,7 @@ from django.urls import reverse
 from prostateHelper.forms import LoadImageForm
 from prostateHelper.models import Image
 
-from PIL import Image as PilImage
+from PIL import Image as PilImage, ImageFilter
 import base64
 import numpy as np
 from io import BytesIO
@@ -34,19 +34,44 @@ def analysed_image(request, image_id):
     if request.method == 'GET':
         try:
             im = Image.objects.get(pk=image_id)
-            output_array = process(im.original)
-            result_uri = convert_array_to_uri(output_array)
+            input_array, output_array = process(im.original)
+            mask_uri, result_uri = convert_array_to_uri(input_array, output_array)
         except Image.DoesNotExist:
             raise Http404("Image does not exist")
         return render(request, 'prostateHelper/analysed_image.html',
-                      {'image': im, 'result_uri': result_uri})
+                      {'image': im,
+                       'mask_uri': mask_uri,
+                       'result_uri': result_uri})
 
 
-def convert_array_to_uri(arr):
-    arr = arr * 255
-    arr = arr.astype(np.uint8)
-    img = PilImage.fromarray(arr)
+def convert_array_to_uri(input_arr, mask_arr):
+    img = PilImage.fromarray(input_arr).convert('L').convert('RGB')
+    mask = PilImage.fromarray(mask_arr).convert('L')
+
+    mainN = np.array(img)
+    mainN = drawContour(mainN, mask, (255, 0, 0))  # draw contour 1 in red
+
+    res = PilImage.fromarray(mainN)
+    return from_pil_image_to_uri(mask), from_pil_image_to_uri(res)
+
+
+def from_pil_image_to_uri(image):
     data = BytesIO()
-    img.save(data, "JPEG")  # pick your format
+    image.save(data, "JPEG")  # pick your format
     data64 = base64.b64encode(data.getvalue())
     return u'data:img/jpeg;base64,' + data64.decode('utf-8')
+
+
+def drawContour(m, s, RGB):
+    """Draw edges of contour 'c' from segmented image 's' onto 'm' in colour 'RGB'"""
+    # Fill contour "c" with white, make all else black
+    thisContour = s.point(lambda p: p > 125 and 255)
+    # DEBUG: thisContour.save(f"interim{c}.png")
+
+    # Find edges of this contour and make into Numpy array
+    thisEdges = thisContour.filter(ImageFilter.FIND_EDGES)
+    thisEdgesN = np.array(thisEdges)
+
+    # Paint locations of found edges in color "RGB" onto "main"
+    m[np.nonzero(thisEdgesN)] = RGB
+    return m

@@ -7,7 +7,7 @@
 
 .column {
   float: left;
-  width: 50%;
+  width: 33%;
   padding: 5px;
 }
 
@@ -32,6 +32,9 @@
     <div class="row">
       <div class="column">
         <img src="{{ image.original.url }}"  style="width:100%">
+      </div>
+      <div class="column">
+        <img src="{{ mask_uri }}"style="width:100%">
       </div>
       <div class="column">
         <img src="{{ result_uri }}"style="width:100%">

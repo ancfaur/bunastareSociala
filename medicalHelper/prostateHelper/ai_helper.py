@@ -12,7 +12,7 @@ from keras.layers.merge import concatenate, add
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
-from PIL import Image
+from PIL import Image as PilImage
 import numpy as np
 from skimage import transform
 
@@ -103,7 +103,7 @@ class AIManagerBase:
         return model
 
     def _load_and_resize(self, input_path):
-        np_image = Image.open(input_path)
+        np_image = PilImage.open(input_path)
         np_image = np.array(np_image).astype('float32') / 255
         np_image = transform.resize(np_image, (128, 128, 1))
         np_image = np.expand_dims(np_image, axis=0)
@@ -112,10 +112,14 @@ class AIManagerBase:
     def predict_image(self, input_path):
         input_array = self._load_and_resize(input_path)
         output_array = self._model.predict(input_array)
-        output_array = np.squeeze(output_array, axis=0)
-        output_array = output_array[:, :, 0]
-        return output_array
+        return self._to_simple_arr(input_array), self._to_simple_arr(output_array)
 
+    def _to_simple_arr(self, arr):
+        arr = np.squeeze(arr, axis=0)
+        arr = arr[:, :, 0]
+        arr = arr * 255
+        arr = arr.astype(np.uint8)
+        return arr
 
 class AIManager(Singleton, AIManagerBase):
     pass
