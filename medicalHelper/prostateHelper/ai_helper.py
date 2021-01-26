@@ -112,7 +112,9 @@ class AIManagerBase:
     def predict_image(self, input_path):
         input_array = self._load_and_resize(input_path)
         output_array = self._model.predict(input_array)
-        return output_array[0]
+        output_array = np.squeeze(output_array, axis=0)
+        output_array = output_array[:, :, 0]
+        return output_array
 
 
 class AIManager(Singleton, AIManagerBase):

@@ -42,11 +42,10 @@ def analysed_image(request, image_id):
                       {'image': im, 'result_uri': result_uri})
 
 
-def convert_array_to_uri(array):
-    array = np.random.random((128,128))
-    img = PilImage.fromarray(array)
-    if img.mode == "F":
-        img = img.convert('RGB')
+def convert_array_to_uri(arr):
+    arr = arr * 255
+    arr = arr.astype(np.uint8)
+    img = PilImage.fromarray(arr)
     data = BytesIO()
     img.save(data, "JPEG")  # pick your format
     data64 = base64.b64encode(data.getvalue())
